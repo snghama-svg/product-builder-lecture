@@ -1,6 +1,19 @@
 
 const numbersContainer = document.getElementById('numbers-container');
 const generateButton = document.getElementById('generate-button');
+const themeToggle = document.getElementById('theme-toggle');
+
+// Theme Toggle Logic
+const currentTheme = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', currentTheme);
+
+themeToggle.addEventListener('click', () => {
+    let theme = document.documentElement.getAttribute('data-theme');
+    let newTheme = theme === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+});
 
 const generateLottoNumbers = () => {
     const numbers = new Set();
