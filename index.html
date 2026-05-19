@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>제휴 문의</title>
+    <title>동물상 테스트 - 강아지 vs 고양이</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,68 +12,119 @@
             <button id="theme-toggle">🌓 Toggle Theme</button>
         </div>
 
-        <section id="partnership-contact">
-            <h2>제휴 문의</h2>
-            <p>비즈니스 제휴 및 협력 제안을 기다립니다.</p>
-            <form action="https://formspree.io/f/xojbjljl" method="POST">
-                <div class="form-group">
-                    <label for="name">이름/기업명</label>
-                    <input type="text" id="name" name="name" required placeholder="홍길동">
-                </div>
-                <div class="form-group">
-                    <label for="email">이메일 주소</label>
-                    <input type="email" id="email" name="_replyto" required placeholder="example@email.com">
-                </div>
-                <div class="form-group">
-                    <label for="subject">문의 유형</label>
-                    <select id="subject" name="subject">
-                        <option value="partnership">비즈니스 제휴</option>
-                        <option value="marketing">마케팅/광고</option>
-                        <option value="technical">기술 협력</option>
-                        <option value="other">기타</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="message">문의 내용</label>
-                    <textarea id="message" name="message" rows="5" required placeholder="내용을 입력해주세요."></textarea>
-                </div>
-                <button type="submit" id="submit-button">문의하기</button>
-            </form>
+        <section id="animal-test">
+            <h1>동물상 테스트</h1>
+            <p>나의 얼굴은 강아지상일까, 고양이상일까?</p>
+            
+            <div id="upload-area">
+                <input type="file" id="image-upload" accept="image/*" hidden>
+                <label for="image-upload" id="upload-label">
+                    <div id="upload-icon">📸</div>
+                    <span>사진을 업로드하거나 촬영하세요</span>
+                </label>
+                <img id="face-image" src="#" alt="your image" style="display: none; width: 100%; border-radius: 20px; margin-bottom: 20px;">
+            </div>
+
+            <div id="loading-spinner" style="display: none;">
+                <div class="spinner"></div>
+                <p>모델 분석 중...</p>
+            </div>
+
+            <div id="result-area" style="display: none;">
+                <h2 id="result-message"></h2>
+                <div id="label-container"></div>
+                <button id="retry-button" onclick="window.location.reload()">다시 하기</button>
+            </div>
         </section>
 
         <section id="comments-section">
             <div id="disqus_thread"></div>
             <script>
-                /**
-                *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
-                *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables    */
-                /*
-                var disqus_config = function () {
-                this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
-                this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
-                };
-                */
-                (function() { // DON'T EDIT BELOW THIS LINE
+                (function() { 
                 var d = document, s = d.createElement('script');
                 s.src = 'https://productbuilder2-8.disqus.com/embed.js';
                 s.setAttribute('data-timestamp', +new Date());
                 (d.head || d.body).appendChild(s);
                 })();
             </script>
-            <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
         </section>
     </div>
+
+    <!-- TensorFlow.js and Teachable Machine libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    
     <script>
+        const URL = "https://teachablemachine.withgoogle.com/models/QJMymbFwS/";
+        let model, labelContainer, maxPredictions;
+
+        // Theme Toggle
         const themeToggle = document.getElementById('theme-toggle');
         const currentTheme = localStorage.getItem('theme') || 'light';
         document.documentElement.setAttribute('data-theme', currentTheme);
-
         themeToggle.addEventListener('click', () => {
             let theme = document.documentElement.getAttribute('data-theme');
             let newTheme = theme === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
         });
+
+        // Load the image model
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        // Image upload and prediction
+        const imageUpload = document.getElementById('image-upload');
+        const faceImage = document.getElementById('face-image');
+        const uploadLabel = document.getElementById('upload-label');
+        const resultArea = document.getElementById('result-area');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        imageUpload.addEventListener('change', async (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    faceImage.src = event.target.result;
+                    faceImage.style.display = 'block';
+                    uploadLabel.style.display = 'none';
+                    loadingSpinner.style.display = 'block';
+                    
+                    if (!model) await init();
+                    predict();
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        async function predict() {
+            const prediction = await model.predict(faceImage);
+            loadingSpinner.style.display = 'none';
+            resultArea.style.display = 'block';
+
+            prediction.sort((a, b) => parseFloat(b.probability) - parseFloat(a.probability));
+            
+            const resultTitle = prediction[0].className;
+            document.getElementById('result-message').innerText = `당신은 ${resultTitle}상입니다!`;
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const classPrediction = 
+                    prediction[i].className + ": " + Math.round(prediction[i].probability * 100) + "%";
+                labelContainer.childNodes[i].innerHTML = `
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" style="width: ${prediction[i].probability * 100}%; background-color: ${i === 0 ? '#4CAF50' : '#aaa'};"></div>
+                        <span class="progress-label">${classPrediction}</span>
+                    </div>
+                `;
+            }
+        }
     </script>
 </body>
 </html>
